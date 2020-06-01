@@ -51,6 +51,8 @@ const create = ({
     const getData = (options = {}) => {
         const params = querystring.stringify(options);
         log('getData', params);
+        log(session);
+        log('the URL; ', `${urls.tradingUrl}v5/update/${session.account};jsessionid=${session.id}?${params}`);
         return fetch(
             `${urls.tradingUrl}v5/update/${session.account};jsessionid=${session.id}?${params}`
         ).then(res => res.json());
@@ -167,12 +169,13 @@ const create = ({
      * @return {Promise}
      */
     const getPortfolio = () => {
-        return getData({portfolio: 0}).then(data => {
-            if (data.portfolio && Array.isArray(data.portfolio.value)) {
-                return {portfolio: data.portfolio.value};
-            }
-            throw Error('Bad result: ' + JSON.stringify(data));
-        });
+        return getData({portfolio: 0})
+            .then(data => {
+                if (data.portfolio && Array.isArray(data.portfolio.value)) {
+                    return {portfolio: data.portfolio.value};
+                }
+                throw Error('Bad result: ' + JSON.stringify(data));
+            });
     };
 
     /**
@@ -263,17 +266,25 @@ const create = ({
      * @return {Promise}
      */
     const updateConfig = () =>
-        fetch(`${BASE_TRADER_URL}/login/secure/config`, {
-            headers: {Cookie: `JSESSIONID=${session.id};`},
-        })
+        fetch(
+            `${BASE_TRADER_URL}/login/secure/config`,
+            {headers: {Cookie: `JSESSIONID=${session.id};`}}
+        )
             .then(res => res.json())
             .then(res => {
-                urls.paUrl = res.paUrl;
-                urls.productSearchUrl = res.productSearchUrl;
-                urls.productTypesUrl = res.productTypesUrl;
-                urls.reportingUrl = res.reportingUrl;
-                urls.tradingUrl = res.tradingUrl;
-                urls.vwdQuotecastServiceUrl = res.vwdQuotecastServiceUrl;
+                urls.paUrl = res.data.paUrl;
+                urls.productSearchUrl = res.data.productSearchUrl;
+                urls.productTypesUrl = res.data.productTypesUrl;
+                urls.reportingUrl = res.data.reportingUrl;
+                urls.tradingUrl = res.data.tradingUrl;
+                urls.vwdQuotecastServiceUrl = res.data.vwdQuotecastServiceUrl;
+            });
+
+    const updateAccount = () =>
+        fetch(`${BASE_TRADER_URL}/pa/secure/client?sessionId=${session.id}`)
+            .then(res => res.json())
+            .then(res => {
+                session.account = res.data.intAccount;
             });
 
     /**
@@ -317,6 +328,7 @@ const create = ({
                 log('login Ok:', session.id);
             })
             .then(updateConfig)
+            .then(updateAccount)
             .then(getClientInfo)
             .then(() => session);
     };
@@ -493,6 +505,7 @@ const create = ({
         getProductsByIds,
         getClientInfo,
         updateConfig,
+        updateAccount,
         // properties
         session,
     };
